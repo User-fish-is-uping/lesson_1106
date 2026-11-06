@@ -1,0 +1,16 @@
+build/
+build-*/
+.build/
+dist/
+__pycache__/
+*.pyc
+*.o
+*.obj
+*.elf
+*.bin
+*.kmodel
+*.zip
+*.log
+.env
+.env.*
+!*.example
