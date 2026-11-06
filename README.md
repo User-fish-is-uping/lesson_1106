@@ -58,3 +58,4 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 - [设计决策](docs/设计决策.md)
 - [验证记录](docs/交接与实测记录.md)
 - [双向计数固件回传与实板步骤](docs/双向计数集成回传.md)
+- [零计数问题的 v0.3 诊断版](docs/计数诊断版v0.3.md)

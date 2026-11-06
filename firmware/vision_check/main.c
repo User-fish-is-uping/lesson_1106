@@ -34,6 +34,15 @@ static uint64_t boot_cycles, cpu_hz, sequence_id;
 static kpu_model_context_t model_context;
 static region_layer_t region;
 static obj_info_t people;
+/* Batch each text row into one LCD transfer instead of per-pixel SPI/DMA setup. */
+static uint32_t text_row[320 * 16 / 2];
+static void draw_text_row(uint16_t y, char *text, uint16_t color)
+{
+    size_t length = strlen(text);
+    if (!length || length > 40) return;
+    lcd_ram_draw_string(text, text_row, color, BLACK);
+    lcd_draw_picture(0, y, (uint16_t)(length * 8), 16, text_row);
+}
 static float anchors[10] = {1.3221f,1.73145f,3.19275f,4.00944f,
     5.05587f,8.09892f,9.47112f,4.84053f,11.2364f,10.0071f};
 
@@ -192,25 +201,36 @@ int main(void)
         uint16_t line_a = (uint16_t)(cfg->line_a * extent + .5f);
         uint16_t line_b = (uint16_t)(cfg->line_b * extent + .5f);
         if (cfg->axis == GREETER_X) {
-            lcd_draw_rectangle(line_a, 48, line_a + 1, 238, 1, YELLOW);
-            lcd_draw_rectangle(line_b, 48, line_b + 1, 238, 1, GREEN);
+            lcd_draw_rectangle(line_a, 64, line_a + 1, 238, 1, YELLOW);
+            lcd_draw_rectangle(line_b, 64, line_b + 1, 238, 1, GREEN);
         } else {
             lcd_draw_rectangle(0, line_a, 318, line_a + 1, 1, YELLOW);
             lcd_draw_rectangle(0, line_b, 318, line_b + 1, 1, GREEN);
         }
         snprintf(status, sizeof(status), "IN:%" PRIu64 "  MUTED", current->in_count);
-        lcd_draw_string(0, 0, status, WHITE);
+        draw_text_row(0, status, WHITE);
         snprintf(status, sizeof(status), "OUT:%" PRIu64, current->out_count);
-        lcd_draw_string(0, 16, status, WHITE);
+        draw_text_row(16, status, WHITE);
         snprintf(status, sizeof(status), "%s N:%u E:%d", counting_app_state_name(current->state),
             (unsigned)people.obj_number, (int)current->last_error);
-        lcd_draw_string(0, 32, status, WHITE);
+        draw_text_row(32, status, WHITE);
+        uint64_t dt_ms = observed_ms - previous_frame;
+        if (people.obj_number == 1) {
+            float position = cfg->axis == GREETER_X
+                ? (people.obj[0].x1 / 319.0f + people.obj[0].x2 / 319.0f) * .5f
+                : people.obj[0].y2 / 239.0f;
+            snprintf(status, sizeof(status), "P:%.1f%% DT:%" PRIu64 "ms",
+                (double)(position * 100.f), dt_ms);
+        } else {
+            snprintf(status, sizeof(status), "P:-- DT:%" PRIu64 "ms", dt_ms);
+        }
+        draw_text_row(48, status, dt_ms > cfg->lost_grace_ms ? RED : YELLOW);
 #else
         lcd_draw_rectangle(112, 20, 113, 238, 1, YELLOW);
         lcd_draw_rectangle(207, 20, 208, 238, 1, GREEN);
         snprintf(status, sizeof(status), "PERSON:%u%s  VISION ONLY", (unsigned)people.obj_number,
             people.truncated ? "+" : "");
-        lcd_draw_string(0, 0, status, WHITE);
+        draw_text_row(0, status, WHITE);
         log_frame(observed_ms, observed_ms - previous_frame);
 #endif
         previous_frame = observed_ms;
