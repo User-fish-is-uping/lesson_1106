@@ -1,0 +1,13 @@
+{
+  "axis": "X",
+  "line_a": 0.35,
+  "line_b": 0.65,
+  "hysteresis": 0.03,
+  "confidence_threshold": 0.5,
+  "association_tolerance": 0.05,
+  "max_speed_per_s": 2.0,
+  "outer_stable_ms": 150,
+  "lost_grace_ms": 350,
+  "traversal_timeout_ms": 5000,
+  "reverse_direction": false
+}

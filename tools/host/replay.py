@@ -35,7 +35,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input', type=Path)
     parser.add_argument('--library', type=Path, default=Path('build/host/libgreeter_replay.so'))
-    parser.add_argument('--reverse', action='store_true')
+    parser.add_argument('--reverse', action='store_true', help='toggle configured direction')
+    parser.add_argument('--config', type=Path, help='complete greeter config JSON')
     args = parser.parse_args()
     lib = C.CDLL(str(args.library.resolve()))
     lib.replay_init.argtypes = [C.c_int]
@@ -43,8 +44,27 @@ def main():
     lib.replay_frame.argtypes = [C.c_uint64, C.c_uint64, C.c_int, C.c_int, C.c_uint,
                                 C.POINTER(C.c_float), C.POINTER(C.c_uint64)]
     lib.replay_frame.restype = C.c_int
-    if lib.replay_init(args.reverse):
-        raise RuntimeError('C initialization failed')
+    if args.config:
+        cfg = json.loads(args.config.read_text(encoding='utf-8-sig'))
+        floats = ('line_a', 'line_b', 'hysteresis', 'confidence_threshold',
+                  'association_tolerance', 'max_speed_per_s')
+        times = ('outer_stable_ms', 'lost_grace_ms', 'traversal_timeout_ms')
+        if not isinstance(cfg, dict) or set(cfg) != set(floats + times + ('axis', 'reverse_direction')):
+            raise ValueError('config must contain exactly the documented greeter fields')
+        if cfg['axis'] not in ('X', 'Y') or type(cfg['reverse_direction']) is not bool:
+            raise ValueError('config axis must be X/Y and reverse_direction boolean')
+        values = [cfg[k] for k in floats]
+        if any(type(v) not in (int, float) or not math.isfinite(v) for v in values):
+            raise ValueError('config float fields must be finite numbers')
+        milliseconds = [integer(cfg[k], k) for k in times]
+        lib.replay_configure.argtypes = [C.c_uint, C.POINTER(C.c_float), C.POINTER(C.c_uint64), C.c_int]
+        lib.replay_configure.restype = C.c_int
+        result = lib.replay_configure(cfg['axis'] == 'Y', (C.c_float * 6)(*values),
+                                      (C.c_uint64 * 3)(*milliseconds), cfg['reverse_direction'] ^ args.reverse)
+    else:
+        result = lib.replay_init(args.reverse)
+    if result:
+        raise ValueError('configuration rejected by C core')
     count, events, ins, outs = 0, 0, 0, 0
     with args.input.open(encoding='utf-8-sig') as src:
         for line_no, line in enumerate(src, 1):
@@ -76,6 +96,6 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, RuntimeError) as err:
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, OverflowError) as err:
         print(err, file=sys.stderr)
         sys.exit(2)

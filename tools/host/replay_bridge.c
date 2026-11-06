@@ -33,3 +33,19 @@ int replay_frame(uint64_t seq, uint64_t time, int valid, int truncated, unsigned
     out[5] = (uint64_t)instance.snapshot.last_error;
     return has ? 1 : 0;
 }
+/* Host config bridge avoids exposing the native struct layout to Python. */
+int replay_configure(unsigned axis, const float *values, const uint64_t *times, int reverse) {
+    greeter_config_t c = greeter_default_config();
+    c.axis = (greeter_axis_t)axis;
+    c.line_a = values[0];
+    c.line_b = values[1];
+    c.hysteresis = values[2];
+    c.confidence_threshold = values[3];
+    c.association_tolerance = values[4];
+    c.max_speed_per_s = values[5];
+    c.outer_stable_ms = times[0];
+    c.lost_grace_ms = times[1];
+    c.traversal_timeout_ms = times[2];
+    c.reverse_direction = reverse != 0;
+    return (int)greeter_init(&instance, &c);
+}

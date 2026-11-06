@@ -24,7 +24,7 @@ greeter_error_t greeter_validate_config(const greeter_config_t *c) {
         c->line_a - c->hysteresis <= 0 || c->line_b + c->hysteresis >= 1 ||
         c->line_a + c->hysteresis >= c->line_b - c->hysteresis || c->confidence_threshold < 0 ||
         c->confidence_threshold > 1 || c->association_tolerance < 0 ||
-        c->association_tolerance > 1 || c->max_speed_per_s <= 0 || !c->outer_stable_ms ||
+        c->association_tolerance > 1 || c->max_speed_per_s < 0 || !c->outer_stable_ms ||
         !c->lost_grace_ms || c->traversal_timeout_ms <= c->lost_grace_ms ||
         c->traversal_timeout_ms <= c->outer_stable_ms)
         return GREETER_BAD_CONFIG;
@@ -73,7 +73,7 @@ bool greeter_update(greeter_t *g, const greeter_frame_t *f, greeter_event_t *ev)
     }
     if (g->have_frame && f->now_ms < g->last_now) {
         g->last_seq = f->sequence_id;
-        g->last_now = f->now_ms;
+        /* Keep the last accepted time watermark until the clock catches up. */
         return bad(g, GREETER_TIME_BACKWARD);
     }
     g->have_frame = true;

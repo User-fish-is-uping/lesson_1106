@@ -78,7 +78,18 @@ static void audio(const char *name) {
     greeter_event_t v;
     unsigned i;
     CHECK(audio_queue_init(&q, 5000));
-    if (!strcmp(name, "audio_fifo")) {
+    if (!strcmp(name, "audio_clock")) {
+        v = event(1, 100);
+        CHECK(audio_queue_push(&q, &v, 100) == AUDIO_OK);
+        CHECK(audio_queue_report(&q, 1, AUDIO_FAILED, 99) == AUDIO_TIME_BACKWARD);
+        CHECK(q.count == 1 && q.items[0].attempts == 0 && q.last_now == 100);
+        v = event(2, 101);
+        CHECK(audio_queue_push(&q, &v, 100) == AUDIO_BAD_INPUT);
+        CHECK(q.watermark == 1 && q.stats.invalid == 1);
+        v.timestamp_ms = 100;
+        CHECK(audio_queue_push(&q, &v, 100) == AUDIO_OK);
+        CHECK(audio_queue_report(&q, 1, AUDIO_STARTED, 100) == AUDIO_OK);
+    } else if (!strcmp(name, "audio_fifo")) {
         for (i = 1; i <= 4; i++) {
             v = event(i, 0);
             CHECK(audio_queue_push(&q, &v, 0) == AUDIO_OK);
@@ -183,6 +194,11 @@ int main(int argc, char **argv) {
     } else if (!strcmp(name, "config")) {
         c = greeter_default_config();
         CHECK(greeter_validate_config(&c) == GREETER_OK);
+        c.max_speed_per_s = 0;
+        CHECK(greeter_validate_config(&c) == GREETER_OK);
+        c.max_speed_per_s = -1;
+        CHECK(greeter_validate_config(&c) == GREETER_BAD_CONFIG);
+        c = greeter_default_config();
         c.line_a = NAN;
         CHECK(greeter_validate_config(&c) == GREETER_BAD_CONFIG);
         c = greeter_default_config();
@@ -244,6 +260,11 @@ int main(int argc, char **argv) {
                 at(500, b, 1);
                 at(650, b, 1);
                 CHECK(fired);
+            } else if (!strcmp(name, "frame_gap")) {
+                at(300, .5f, 1);
+                at(651, b, 1);
+                at(801, b, 1);
+                CHECK(!fired && g.snapshot.last_event_id == 0);
             } else if (!strcmp(name, "loss")) {
                 at(300, .5f, 1);
                 at(651, .5f, 0);
@@ -287,6 +308,16 @@ int main(int argc, char **argv) {
                 f.now_ms = 299;
                 CHECK(!greeter_update(&g, &f, &e) &&
                       g.snapshot.last_error == GREETER_TIME_BACKWARD && !g.origin);
+                CHECK(g.last_now == 300);
+                at(200, a, 1);
+                CHECK(g.snapshot.last_error == GREETER_TIME_BACKWARD && g.last_now == 300 &&
+                      !g.have_point);
+                at(299, a, 1);
+                CHECK(!g.have_point);
+                at(300, a, 1);
+                CHECK(g.have_point && !g.origin);
+                at(450, a, 1);
+                CHECK(g.origin != 0);
             } else if (!strcmp(name, "controls")) {
                 cross(300, b);
                 greeter_reset_counts(&g);

@@ -59,9 +59,14 @@ typedef struct {
     int origin, stable_side;
 } greeter_t;
 greeter_config_t greeter_default_config(void);
+/* Finite floats; 0<a<b<1; h>=0; a-h>0; b+h<1; a+h<b-h.
+ * Confidence/tolerance in [0,1], speed>=0; stable/grace>0; timeout>both. */
 greeter_error_t greeter_validate_config(const greeter_config_t *config);
 greeter_error_t greeter_init(greeter_t *self, const greeter_config_t *config);
-/* Returns true only when out_event was written. Consult snapshot.last_error otherwise. */
+/* Returns true only when out_event was written. Consult snapshot.last_error otherwise.
+ * Sequence checked first. Old sequences do not advance time/track. A new sequence
+ * with backward time is consumed, clears track, and preserves accepted time watermark.
+ * No new frame/observation for >grace also breaks continuity. Never use fast-math. */
 bool greeter_update(greeter_t *self, const greeter_frame_t *frame, greeter_event_t *out_event);
 void greeter_get_snapshot(const greeter_t *self, greeter_snapshot_t *out);
 void greeter_reset_counts(greeter_t *self);
