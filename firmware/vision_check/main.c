@@ -1,7 +1,7 @@
 /* Derived from Yahboom object_detection/main.c, Gengyue, 2020-05-27.
  * Copyright (C) 2016-2022 Shenzhen Yahboom Tech.
  * Project adaptation: person-only diagnostic, JSONL frames, bounded waits.
- * No directional counter here: that module belongs to cloud/core.
+ * Optional counting calls the shared core; no second counting algorithm here.
  */
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +19,11 @@
 #include "gc2145.h"
 #include "region_layer.h"
 #include "kpu.h"
+#include "build_info.h"
+#ifdef GREETER_ENABLE_COUNTING
+#include "counting_app.h"
+static bool counting_ready;
+#endif
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
 #define INCBIN_PREFIX
 #include "incbin.h"
@@ -47,6 +52,12 @@ static void on_ai_done(void *context)
 static void fatal(const char *reason)
 {
     printf("{\"kind\":\"error\",\"reason\":\"%s\",\"fatal\":true}\n", reason);
+#ifdef GREETER_ENABLE_COUNTING
+    if (counting_ready) {
+        uint64_t failed_ms = now_ms();
+        counting_app_process(NULL, ++sequence_id, failed_ms, failed_ms, 0);
+    } else
+#endif
     printf("{\"kind\":\"frame\",\"seq\":%" PRIu64 ",\"t_ms\":%" PRIu64
         ",\"valid\":false,\"truncated\":false,\"persons\":[]}\n", ++sequence_id, now_ms());
     lcd_clear(BLACK);
@@ -75,18 +86,20 @@ static void setup_pins(void)
     sysctl_set_spi0_dvp_data(1);
 }
 
+#ifndef GREETER_ENABLE_COUNTING
 static void log_frame(uint64_t timestamp, uint64_t elapsed)
 {
     printf("{\"kind\":\"frame\",\"seq\":%" PRIu64 ",\"t_ms\":%" PRIu64
         ",\"valid\":true,\"truncated\":%s,\"persons\":[",
         ++sequence_id, timestamp, people.truncated ? "true" : "false");
     for (uint32_t i = 0; i < people.obj_number; ++i) {
-        printf("%s{\"x1\":%.5f,\"y1\":%.5f,\"x2\":%.5f,\"y2\":%.5f,\"score\":%.5f}",
+        printf("%s{\"x1\":%.9g,\"y1\":%.9g,\"x2\":%.9g,\"y2\":%.9g,\"score\":%.9g}",
             i ? "," : "", people.obj[i].x1 / 319.0f, people.obj[i].y1 / 239.0f,
             people.obj[i].x2 / 319.0f, people.obj[i].y2 / 239.0f, people.obj[i].prob);
     }
     printf("],\"dt_ms\":%" PRIu64 "}\n", elapsed);
 }
+#endif
 
 int main(void)
 {
@@ -100,10 +113,17 @@ int main(void)
     plic_init();
     lcd_init();
     lcd_clear(BLACK);
-    lcd_draw_string(8, 40, "Greeter vision check v0.1", WHITE);
-    printf("{\"kind\":\"boot\",\"firmware\":\"vision_check_v0.1\",\"baud\":115200,"
+    lcd_draw_string(8, 40, FIRMWARE_VERSION, WHITE);
+    printf("{\"kind\":\"boot\",\"firmware\":\"%s\",\"source_commit\":\"%s\","
+        "\"source_dirty\":%s,\"core_commit\":\"%s\",\"baud\":115200,"
         "\"person_class\":14,\"width\":320,\"height\":240,\"threshold\":0.5,"
-        "\"line_a\":0.35,\"line_b\":0.65,\"cpu_hz\":%" PRIu64 "}\n", cpu_hz);
+        "\"cpu_hz\":%" PRIu64 "}\n", FIRMWARE_VERSION, FIRMWARE_SOURCE_COMMIT,
+        FIRMWARE_SOURCE_DIRTY ? "true" : "false", FIRMWARE_CORE_COMMIT, cpu_hz);
+#ifdef GREETER_ENABLE_COUNTING
+    if (!counting_app_init()) fatal("counter_init");
+    counting_ready = true;
+    counting_app_log_config();
+#endif
     int camera = OVxxxx_read_id();
     if (!display_buf_addr || !g_ai_buf_in || !g_ai_od_buf) fatal("camera_allocation");
     if (camera == OV_9655) {
@@ -123,6 +143,9 @@ int main(void)
     region.anchor_number = 5;
     region.anchor = anchors;
     region.threshold = 0.5f;
+#ifdef GREETER_ENABLE_COUNTING
+    region.threshold = counting_app_config()->confidence_threshold;
+#endif
     region.nms_value = 0.2f;
     if (region_layer_init(&region, 10, 8, 125, 320, 240)) fatal("region_allocation");
     printf("{\"kind\":\"model\",\"status\":\"ready\"}\n");
@@ -153,17 +176,43 @@ int main(void)
             || !output || output_size < region.output_number * sizeof(float)) fatal("kpu_output");
         region.input = output;
         region_layer_run(&region, &people);
+#ifdef GREETER_ENABLE_COUNTING
+        counting_app_process(&people, ++sequence_id, observed_ms, now_ms(),
+                             observed_ms - previous_frame);
+#endif
         lcd_draw_picture(0, 0, 320, 240, (uint32_t *)(uintptr_t)display_buf_addr);
         for (uint32_t i = 0; i < people.obj_number; ++i)
             lcd_draw_rectangle(people.obj[i].x1, people.obj[i].y1,
                 people.obj[i].x2, people.obj[i].y2, 1, CYAN);
+        char status[40];
+#ifdef GREETER_ENABLE_COUNTING
+        const greeter_config_t *cfg = counting_app_config();
+        const greeter_snapshot_t *current = counting_app_snapshot();
+        uint16_t extent = cfg->axis == GREETER_X ? 319 : 239;
+        uint16_t line_a = (uint16_t)(cfg->line_a * extent + .5f);
+        uint16_t line_b = (uint16_t)(cfg->line_b * extent + .5f);
+        if (cfg->axis == GREETER_X) {
+            lcd_draw_rectangle(line_a, 48, line_a + 1, 238, 1, YELLOW);
+            lcd_draw_rectangle(line_b, 48, line_b + 1, 238, 1, GREEN);
+        } else {
+            lcd_draw_rectangle(0, line_a, 318, line_a + 1, 1, YELLOW);
+            lcd_draw_rectangle(0, line_b, 318, line_b + 1, 1, GREEN);
+        }
+        snprintf(status, sizeof(status), "IN:%" PRIu64 "  MUTED", current->in_count);
+        lcd_draw_string(0, 0, status, WHITE);
+        snprintf(status, sizeof(status), "OUT:%" PRIu64, current->out_count);
+        lcd_draw_string(0, 16, status, WHITE);
+        snprintf(status, sizeof(status), "%s N:%u E:%d", counting_app_state_name(current->state),
+            (unsigned)people.obj_number, (int)current->last_error);
+        lcd_draw_string(0, 32, status, WHITE);
+#else
         lcd_draw_rectangle(112, 20, 113, 238, 1, YELLOW);
         lcd_draw_rectangle(207, 20, 208, 238, 1, GREEN);
-        char status[40];
         snprintf(status, sizeof(status), "PERSON:%u%s  VISION ONLY", (unsigned)people.obj_number,
             people.truncated ? "+" : "");
         lcd_draw_string(0, 0, status, WHITE);
         log_frame(observed_ms, observed_ms - previous_frame);
+#endif
         previous_frame = observed_ms;
     }
 }

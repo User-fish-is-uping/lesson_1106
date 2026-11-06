@@ -2,7 +2,6 @@
 #define _REGION_LAYER
 
 #include <stdint.h>
-#include "kpu.h"
 
 typedef struct
 {
