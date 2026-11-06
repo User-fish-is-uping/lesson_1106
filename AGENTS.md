@@ -1,11 +1,11 @@
 # Project collaboration
 
-This is a two-student K210 shop entrance greeter project. Read README.md first. Read docs/接口约定.md before changing public interfaces and docs/云端Codex任务书.md for the cloud assignment.
+This is a two-student K210 shop entrance greeter project. Read README.md first. Read docs/接口约定.md before changing public interfaces and docs/开发与集成流程.md for integration procedures.
 
 ## Ownership
 
-- Desktop Codex owns firmware/, tools/windows/, and release packaging. It integrates the supplied Kendryte SDK, person detector, LCD, SD card, and I2S playback.
-- Cloud Codex owns core/, tests/, tools/host/, and the host CMakeLists.txt. Its C code must run on a host compiler and K210 without requiring SDK headers in core/.
+- Firmware maintainers own firmware/, tools/windows/, and release packaging. It integrates the supplied Kendryte SDK, person detector, LCD, SD card, and I2S playback.
+- Core maintainers own core/, tests/, tools/host/, and the host CMakeLists.txt. The core C code must run on a host compiler and K210 without requiring SDK headers in core/.
 - Each implementation change includes a concise handoff entry explaining files changed, checks run, and unresolved issues.
 - Interface revision is recorded in docs/接口约定.md and shared before integration.
 
