@@ -29,3 +29,19 @@ target_include_directories(count_controls PRIVATE
 target_compile_options(count_controls PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_link_libraries(count_controls PRIVATE m)
 add_test(NAME adapter_controls COMMAND count_controls)
+file(GLOB_RECURSE LVGL_SOURCES "${REPO_ROOT}/firmware/vendor/lvgl/src/*.c")
+add_executable(ui_fixture ui_fixture.c ${LVGL_SOURCES}
+    "${REPO_ROOT}/firmware/vision_count/ui_lvgl.c"
+    "${REPO_ROOT}/firmware/vision_count/counting_app.c"
+    "${REPO_ROOT}/core/greeter.c" "${REPO_ROOT}/core/audio_queue.c")
+target_include_directories(ui_fixture PRIVATE "${REPO_ROOT}/firmware/vendor"
+    "${REPO_ROOT}/firmware/vision_count" "${REPO_ROOT}/firmware/vision_check"
+    "${REPO_ROOT}/firmware/vision_check/lcd" "${REPO_ROOT}/core")
+target_link_libraries(ui_fixture PRIVATE m)
+add_test(NAME adapter_lvgl_touch COMMAND ui_fixture)
+add_executable(audio_fixture audio_fixture.c "${REPO_ROOT}/firmware/vision_count/audio_player.c")
+target_include_directories(audio_fixture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/audio-stubs"
+    "${REPO_ROOT}/firmware/vision_count" "${REPO_ROOT}/core")
+target_compile_options(audio_fixture PRIVATE -Wall -Wextra -Wpedantic -Werror)
+add_test(NAME adapter_audio_player COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/verify_audio.py" "$<TARGET_FILE:audio_fixture>")

@@ -39,13 +39,13 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 | `tools/host/` | 主机日志回放与接入示例 |
 | `docs/` | 接口规范、构建说明、开发流程及验证记录 |
 
-板端代码位于 `firmware/vision_check/`（共用视觉链路）和 `firmware/vision_count/`（双向计数适配），Windows 构建与测试入口在 `tools/windows/`。TF 卡和 I2S 播放仍待集成。
+板端代码位于 `firmware/vision_check/`（共用视觉链路）和 `firmware/vision_count/`（双向计数适配），Windows 构建与测试入口在 `tools/windows/`。LVGL 触摸界面、TF 音频预载和 I2S DMA 播放已接入 v0.4，待实板验收。
 
 ## 硬件与验证状态
 
 硬件平台为 Yahboom YB-DKA01 V1.1，使用摄像头、LCD、扬声器和 TF 卡。现有课程模型与驱动需要由固件集成适配。
 
-桌面已复测 **31/31 主机测试通过**，新增 **5/5 板端适配层测试通过**，并完成 **K210 人员检测＋双向计数固件交叉编译**。本版固定静音，尚未实板验证。云端此前的 ASan/UBSan 30 项 C 检查通过记录单独保留，本轮桌面未重跑 sanitizer。主机和编译结果不能替代实物通行验证。
+桌面已复测 **31/31 主机测试通过**、**8/8 板端适配测试通过**（含真实 LVGL 模拟触摸和播放器失败路径），并完成 AI＋计数＋LVGL＋语音集成固件交叉编译。此前计数已有用户初步实测反馈，v0.4 尚未实板验证。云端此前的 ASan/UBSan 30 项 C 检查通过记录单独保留，本轮桌面未重跑 sanitizer。主机和编译结果不能替代实物通行验证。
 
 板端构建：在仓库根用 PowerShell 7 执行 `& '.\tools\windows\build-vision.ps1' -Target vision-count`。构建产物与完整配置位于 `dist/vision-count/`，不进入源码库。主机及适配测试入口为 `& '.\tools\windows\test-counter.ps1'`。桌面本地统一目录为 `D:\Codex\专业基础实践\lesson_1106`。
 
@@ -62,4 +62,4 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 
 ## 下一阶段协作
 
-见 [下一阶段两人代码分工](docs/下一阶段两人代码分工.md)。课程要求的 LVGL 为必做项，尚待接入；2026-11-12 已补清零/方向切换板端接口，主机 31/31、适配 6/6 通过。用户此前已反馈初步实物计数验证，正式验收记录仍待补齐。
+见 [下一阶段两人代码分工](docs/下一阶段两人代码分工.md)。课程要求的 LVGL 已接入，下一步进行上板验收与控制日志回放对接。详见 [v0.4 使用与交接说明](docs/LVGL语音集成v0.4.md)。用户此前已反馈初步实物计数验证，正式验收记录仍待补齐。

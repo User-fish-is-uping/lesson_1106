@@ -21,4 +21,4 @@ This is a two-student K210 shop entrance greeter project. Read README.md first. 
 
 The first release handles one person passing at a time. Multiple simultaneous people suspend automatic counting for that ambiguous passage. The system resumes after an unambiguous origin-side observation.
 
-The course requires AI and an innovation point. Use the existing KPU person model plus directional state transitions and ordered voice feedback. Prioritize that complete flow before Wi-Fi, onboard recording, or extra UI frameworks.
+The course requires AI, an LVGL interaction interface, and an innovation point. Use the existing KPU person model plus directional state transitions and ordered voice feedback. Prioritize that complete flow before Wi-Fi, onboard recording, or UI frameworks beyond the required LVGL.

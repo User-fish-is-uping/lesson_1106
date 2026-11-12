@@ -11,19 +11,37 @@ static audio_queue_t audio;
 static greeter_frame_t frame;
 static greeter_snapshot_t snapshot;
 static greeter_config_t config;
+static counting_audio_start_t audio_start;
 
 bool counting_app_init(void)
 {
     config = greeter_default_config();
     if (greeter_init(&counter, &config) != GREETER_OK || !audio_queue_init(&audio, 5000))
         return false;
-    audio_queue_set_muted(&audio, true); /* No I2S or SD driver in this release. */
+    audio_start = NULL;
+    audio_queue_set_muted(&audio, true); /* Stay muted until a driver is attached. */
     greeter_get_snapshot(&counter, &snapshot);
     return true;
 }
 
 const greeter_config_t *counting_app_config(void) { return &config; }
 const greeter_snapshot_t *counting_app_snapshot(void) { return &snapshot; }
+
+void counting_app_attach_audio(counting_audio_start_t start) { audio_start = start; }
+void counting_app_set_muted(bool muted) { audio_queue_set_muted(&audio, muted || !audio_start); }
+bool counting_app_muted(void) { return audio.muted; }
+void counting_app_service_audio(uint64_t now_ms, bool asynchronous_failure)
+{
+    if (asynchronous_failure) audio_queue_report_async_failure(&audio);
+    audio_item_t item;
+    if (!audio_start || audio_queue_peek(&audio, now_ms, &item) != AUDIO_OK) return;
+    audio_start_result_t result = audio_start(item.event.type, now_ms);
+    audio_queue_report(&audio, item.event.event_id, result, now_ms);
+    if (result != AUDIO_BUSY)
+        printf("{\"kind\":\"audio\",\"id\":%" PRIu64 ",\"t_ms\":%" PRIu64
+               ",\"status\":\"%s\",\"file\":\"%s\"}\n", item.event.event_id, now_ms,
+               result == AUDIO_STARTED ? "start" : "failed", audio_queue_path(item.event.type));
+}
 
 void counting_app_reset_counts(void)
 {
@@ -61,7 +79,7 @@ void counting_app_log_config(void)
         "\"confidence_threshold\":%.9g,\"association_tolerance\":%.9g,"
         "\"max_speed_per_s\":%.9g,\"outer_stable_ms\":%" PRIu64 ","
         "\"lost_grace_ms\":%" PRIu64 ",\"traversal_timeout_ms\":%" PRIu64 ","
-        "\"reverse_direction\":%s},\"audio\":{\"enabled\":false,\"muted\":true,"
+        "\"reverse_direction\":%s},\"audio\":{\"enabled\":%s,\"muted\":%s,"
         "\"capacity\":%u,\"max_wait_ms\":%" PRIu64 "},\"sizes\":{"
         "\"greeter\":%u,\"audio_queue\":%u,\"frame\":%u,\"snapshot\":%u}}\n",
         GREETER_INTERFACE_VERSION, config.axis == GREETER_X ? "X" : "Y",
@@ -69,6 +87,7 @@ void counting_app_log_config(void)
         (double)config.confidence_threshold, (double)config.association_tolerance,
         (double)config.max_speed_per_s, config.outer_stable_ms, config.lost_grace_ms,
         config.traversal_timeout_ms, config.reverse_direction ? "true" : "false",
+        audio_start ? "true" : "false", audio.muted ? "true" : "false",
         (unsigned)AUDIO_QUEUE_CAPACITY, audio.max_wait_ms, (unsigned)sizeof(counter),
         (unsigned)sizeof(audio), (unsigned)sizeof(frame), (unsigned)sizeof(snapshot));
 }
@@ -128,7 +147,7 @@ void counting_app_process(const obj_info_t *detections, uint64_t seq,
             snapshot.in_count, snapshot.out_count);
         printf("{\"kind\":\"audio\",\"id\":%" PRIu64 ",\"t_ms\":%" PRIu64
             ",\"status\":\"%s\",\"result\":%d}\n", event.event_id, service_ms,
-            queued == AUDIO_MUTED ? "muted" : "queue_error", (int)queued);
+        queued == AUDIO_MUTED ? "muted" : (queued == AUDIO_OK ? "queued" : "queue_error"), (int)queued);
     }
     printf("{\"kind\":\"state\",\"seq\":%" PRIu64 ",\"t_ms\":%" PRIu64
         ",\"state\":\"%s\",\"error\":%d,\"in\":%" PRIu64 ",\"out\":%" PRIu64 "}\n",

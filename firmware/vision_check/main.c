@@ -22,6 +22,8 @@
 #include "build_info.h"
 #ifdef GREETER_ENABLE_COUNTING
 #include "counting_app.h"
+#include "ui_lvgl.h"
+#include "audio_player.h"
 static bool counting_ready;
 #endif
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
@@ -35,6 +37,7 @@ static kpu_model_context_t model_context;
 static region_layer_t region;
 static obj_info_t people;
 /* Batch each text row into one LCD transfer instead of per-pixel SPI/DMA setup. */
+#ifndef GREETER_ENABLE_COUNTING
 static uint32_t text_row[320 * 16 / 2];
 static void draw_text_row(uint16_t y, char *text, uint16_t color)
 {
@@ -43,6 +46,7 @@ static void draw_text_row(uint16_t y, char *text, uint16_t color)
     lcd_ram_draw_string(text, text_row, color, BLACK);
     lcd_draw_picture(0, y, (uint16_t)(length * 8), 16, text_row);
 }
+#endif
 static float anchors[10] = {1.3221f,1.73145f,3.19275f,4.00944f,
     5.05587f,8.09892f,9.47112f,4.84053f,11.2364f,10.0071f};
 
@@ -131,7 +135,7 @@ int main(void)
 #ifdef GREETER_ENABLE_COUNTING
     if (!counting_app_init()) fatal("counter_init");
     counting_ready = true;
-    counting_app_log_config();
+
 #endif
     int camera = OVxxxx_read_id();
     if (!display_buf_addr || !g_ai_buf_in || !g_ai_od_buf) fatal("camera_allocation");
@@ -159,11 +163,22 @@ int main(void)
     if (region_layer_init(&region, 10, 8, 125, 320, 240)) fatal("region_allocation");
     printf("{\"kind\":\"model\",\"status\":\"ready\"}\n");
     sysctl_enable_irq();
+    #ifdef GREETER_ENABLE_COUNTING
+    audio_player_init();
+    counting_app_attach_audio(audio_player_start);
+    counting_app_set_muted(false);
+    counting_app_log_config();
+    ui_lvgl_init(now_ms());
+#endif
     uint64_t previous_frame = now_ms();
     while (1) {
         uint64_t deadline_start = now_ms();
         g_dvp_finish_flag = 0;
         while (!g_dvp_finish_flag) {
+#ifdef GREETER_ENABLE_COUNTING
+            ui_lvgl_service(now_ms());
+            counting_app_service_audio(now_ms(), audio_player_service(now_ms()));
+#endif
             if (now_ms() - deadline_start > 2000) fatal("camera_timeout");
         }
         /* Capture finish is the observation time, not the later log output time. */
@@ -177,6 +192,10 @@ int main(void)
             fatal("kpu_start");
         deadline_start = now_ms();
         while (!ai_done_flag) {
+#ifdef GREETER_ENABLE_COUNTING
+            ui_lvgl_service(now_ms());
+            counting_app_service_audio(now_ms(), audio_player_service(now_ms()));
+#endif
             if (now_ms() - deadline_start > 2000) fatal("kpu_timeout");
         }
         float *output = NULL;
@@ -189,43 +208,17 @@ int main(void)
         counting_app_process(&people, ++sequence_id, observed_ms, now_ms(),
                              observed_ms - previous_frame);
 #endif
+#ifdef GREETER_ENABLE_COUNTING
+        counting_app_service_audio(now_ms(), audio_player_service(now_ms()));
+        ui_lvgl_update(&people, observed_ms - previous_frame);
+        ui_lvgl_service(now_ms());
+#else
         lcd_draw_picture(0, 0, 320, 240, (uint32_t *)(uintptr_t)display_buf_addr);
         for (uint32_t i = 0; i < people.obj_number; ++i)
             lcd_draw_rectangle(people.obj[i].x1, people.obj[i].y1,
                 people.obj[i].x2, people.obj[i].y2, 1, CYAN);
         char status[40];
-#ifdef GREETER_ENABLE_COUNTING
-        const greeter_config_t *cfg = counting_app_config();
-        const greeter_snapshot_t *current = counting_app_snapshot();
-        uint16_t extent = cfg->axis == GREETER_X ? 319 : 239;
-        uint16_t line_a = (uint16_t)(cfg->line_a * extent + .5f);
-        uint16_t line_b = (uint16_t)(cfg->line_b * extent + .5f);
-        if (cfg->axis == GREETER_X) {
-            lcd_draw_rectangle(line_a, 64, line_a + 1, 238, 1, YELLOW);
-            lcd_draw_rectangle(line_b, 64, line_b + 1, 238, 1, GREEN);
-        } else {
-            lcd_draw_rectangle(0, line_a, 318, line_a + 1, 1, YELLOW);
-            lcd_draw_rectangle(0, line_b, 318, line_b + 1, 1, GREEN);
-        }
-        snprintf(status, sizeof(status), "IN:%" PRIu64 "  MUTED", current->in_count);
-        draw_text_row(0, status, WHITE);
-        snprintf(status, sizeof(status), "OUT:%" PRIu64, current->out_count);
-        draw_text_row(16, status, WHITE);
-        snprintf(status, sizeof(status), "%s N:%u E:%d", counting_app_state_name(current->state),
-            (unsigned)people.obj_number, (int)current->last_error);
-        draw_text_row(32, status, WHITE);
-        uint64_t dt_ms = observed_ms - previous_frame;
-        if (people.obj_number == 1) {
-            float position = cfg->axis == GREETER_X
-                ? (people.obj[0].x1 / 319.0f + people.obj[0].x2 / 319.0f) * .5f
-                : people.obj[0].y2 / 239.0f;
-            snprintf(status, sizeof(status), "P:%.1f%% DT:%" PRIu64 "ms",
-                (double)(position * 100.f), dt_ms);
-        } else {
-            snprintf(status, sizeof(status), "P:-- DT:%" PRIu64 "ms", dt_ms);
-        }
-        draw_text_row(48, status, dt_ms > cfg->lost_grace_ms ? RED : YELLOW);
-#else
+
         lcd_draw_rectangle(112, 20, 113, 238, 1, YELLOW);
         lcd_draw_rectangle(207, 20, 208, 238, 1, GREEN);
         snprintf(status, sizeof(status), "PERSON:%u%s  VISION ONLY", (unsigned)people.obj_number,

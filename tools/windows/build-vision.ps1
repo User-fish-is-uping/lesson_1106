@@ -10,10 +10,10 @@ $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Pat
 $devRoot = Join-Path $CourseRoot 'K210-dev'
 $sdkOriginal = Join-Path $devRoot 'kendryte-standalone-sdk-develop'
 $sdkStage = Join-Path $devRoot 'greeter-sdk'
-$model = Join-Path $CourseRoot '高级实验例程2\7.物体检测\代码\object_detection\detect.kmodel'
+$model = Join-Path $CourseRoot '资料\高级实验例程2\7.物体检测\代码\object_detection\detect.kmodel'
 if ($ModelPath) { $model = (Resolve-Path -LiteralPath $ModelPath).Path }
 $projectName = if ($Target -eq 'vision-count') { 'greeter_count' } else { 'greeter_vision' }
-$version = if ($Target -eq 'vision-count') { 'greeter-count-v0.3' } else { 'greeter-vision-check-v0.3' }
+$version = if ($Target -eq 'vision-count') { 'greeter-count-v0.4' } else { 'greeter-vision-check-v0.3' }
 $sourceCommit = (git -C $projectRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Source must be in the shared Git checkout' }
 $dirty = [bool](git -C $projectRoot status --porcelain --untracked-files=normal)
@@ -42,6 +42,9 @@ Get-ChildItem -LiteralPath (Join-Path $projectRoot 'firmware\vision_check') | Fo
 }
 Copy-Item -LiteralPath $model -Destination (Join-Path $stageSource 'detect.kmodel') -Force
 if ($Target -eq 'vision-count') {
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'firmware\audio_sd') -Destination $stageSource -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'firmware\vendor\lvgl') -Destination $stageSource -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'firmware\vendor\lv_conf.h') -Destination $stageSource -Force
     Copy-Item -LiteralPath (Join-Path $projectRoot 'core') -Destination $stageSource -Recurse -Force
     Get-ChildItem -LiteralPath (Join-Path $projectRoot 'firmware\vision_count') -File | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $stageSource -Force
@@ -93,7 +96,7 @@ if ($Target -eq 'vision-count') {
     firmware=$version; source_commit=$sourceCommit; source_dirty=$dirty; core_commit=$coreCommit
     binary_sha256=$hash; binary_bytes=(Get-Item -LiteralPath $bin).Length
     model_sha256=(Get-FileHash -LiteralPath $model -Algorithm SHA256).Hash
-    config=$configuration; audio_enabled=$false; audio_muted=$true; audio_max_wait_ms=5000
+    config=$configuration; audio_enabled=($Target -eq 'vision-count'); audio_muted=($Target -ne 'vision-count'); audio_max_wait_ms=5000
     baud=115200; region_nms=0.2; log_float_format='%.9g'; hardware_tested=$false
     compiled_at_utc=[DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $dist 'manifest.json') -Encoding utf8

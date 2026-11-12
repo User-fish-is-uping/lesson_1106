@@ -47,3 +47,6 @@
 #define FUNC_LCD_WR             (FUNC_SPI0_SCLK)
 
 #endif /* _PIN_CONFIG_H_ */
+
+/* TF card uses SPI1, software CS; shared course SD adaptation. */
+#define TF_CS_GPIONUM 7
