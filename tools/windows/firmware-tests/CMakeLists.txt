@@ -21,3 +21,11 @@ foreach(scenario roundtrip dwell foldback invalid capacity)
         "${CMAKE_CURRENT_SOURCE_DIR}/verify_adapter.py"
         "$<TARGET_FILE:count_adapter_fixture>" "${REPLAY_LIBRARY}" "${scenario}")
 endforeach()
+add_executable(count_controls controls.c
+    "${REPO_ROOT}/firmware/vision_count/counting_app.c"
+    "${REPO_ROOT}/core/greeter.c" "${REPO_ROOT}/core/audio_queue.c")
+target_include_directories(count_controls PRIVATE
+    "${REPO_ROOT}/core" "${REPO_ROOT}/firmware/vision_count" "${REPO_ROOT}/firmware/vision_check")
+target_compile_options(count_controls PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_link_libraries(count_controls PRIVATE m)
+add_test(NAME adapter_controls COMMAND count_controls)

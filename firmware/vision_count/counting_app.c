@@ -25,6 +25,22 @@ bool counting_app_init(void)
 const greeter_config_t *counting_app_config(void) { return &config; }
 const greeter_snapshot_t *counting_app_snapshot(void) { return &snapshot; }
 
+void counting_app_reset_counts(void)
+{
+    greeter_reset_counts(&counter);
+    audio_queue_clear(&audio);
+    greeter_get_snapshot(&counter, &snapshot);
+}
+
+void counting_app_set_reverse(bool reverse)
+{
+    if (config.reverse_direction == reverse) return;
+    greeter_set_reverse(&counter, reverse);
+    config.reverse_direction = reverse;
+    audio_queue_clear(&audio);
+    greeter_get_snapshot(&counter, &snapshot);
+}
+
 const char *counting_app_state_name(greeter_state_t state)
 {
     switch (state) {
