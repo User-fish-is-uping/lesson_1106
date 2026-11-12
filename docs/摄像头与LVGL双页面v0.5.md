@@ -32,4 +32,6 @@ v0.5 将原来只显示状态面板的计数固件改为两个可触摸切换的
 
 正式产物应为 `dist/vision-count/greeter-count-v0.5.bin`，并同时保存同目录的 manifest.json、SHA256SUMS.txt 和 config.json。只有 manifest 的 source_dirty=false 且 source_commit 对应本次提交时才用于烧录。
 
+Windows 上 CMake 4.x 已移除 SDK 旧版策略的默认兼容模式；构建脚本显式设置 `CMAKE_POLICY_VERSION_MINIMUM=3.5`，不修改课程 SDK。若默认 Visual Studio CMake 路径不存在，通过 `-CMake <cmake.exe>` 指定可用版本。课程 `object_detection/detect.kmodel` 的预期 SHA256 为 `7A098FD7B7AA330B17007C519BEF81C996726C55A8A511EFE6D7FCB4FE041958`。
+
 烧录后先检查摄像头页的方向、RGB565 颜色、A/B 线和人员框，再进入 Panel 测试四个按钮。串口为 115200、8N1、无流控；保存 boot/config/frame/state/control/event/audio 原始日志。

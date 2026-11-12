@@ -45,7 +45,7 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 
 硬件平台为 Yahboom YB-DKA01 V1.1，使用摄像头、LCD、扬声器和 TF 卡。现有课程模型与驱动需要由固件集成适配。
 
-最新核心回归为 **38/38 通过**，固件适配为 **8/8 通过**；其中 LVGL 测试验证摄像头帧、A/B 线、人员框、双页面切换和四个控制按钮。此前 v0.4 完成过交叉编译，v0.5 因当前电脑缺 K210 SDK/模型/交叉工具链尚未交叉编译或上板。本机 sanitizer 尝试因 w64devkit 未附带 libasan/libubsan 而无法链接。主机结果不能替代实物通行验证。
+最新核心回归为 **38/38 通过**，固件适配为 **8/8 通过**；其中 LVGL 测试验证摄像头帧、A/B 线、人员框、双页面切换和四个控制按钮。v0.5 已使用课程 K210 SDK、GCC 8.2.0 和原始物体检测模型完成真实交叉编译，尚待烧录与实板通行验收。本机 sanitizer 尝试因 w64devkit 未附带 libasan/libubsan 而无法链接。主机结果和交叉编译成功不能替代实物验证。
 
 板端构建：在仓库根用 PowerShell 7 执行 `& '.\tools\windows\build-vision.ps1' -Target vision-count`。构建产物与完整配置位于 `dist/vision-count/`，不进入源码库。主机及适配测试入口为 `& '.\tools\windows\test-counter.ps1'`。桌面本地统一目录为 `D:\Codex\专业基础实践\lesson_1106`。
 

@@ -76,7 +76,7 @@ $env:PATH = 'K:\kendryte-toolchain\bin;' + $env:PATH
 $logDir = Join-Path $projectRoot 'build\logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $log = Join-Path $logDir "$Target-build.log"
-& $CMake -S 'K:/greeter-sdk' -B $build -G 'MinGW Makefiles' "-DPROJ=$projectName" '-DTOOLCHAIN=K:/kendryte-toolchain/bin' 2>&1 | Tee-Object -FilePath $log
+& $CMake -S 'K:/greeter-sdk' -B $build -G 'MinGW Makefiles' "-DPROJ=$projectName" '-DTOOLCHAIN=K:/kendryte-toolchain/bin' '-DCMAKE_POLICY_VERSION_MINIMUM=3.5' 2>&1 | Tee-Object -FilePath $log
 if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed: $log" }
 & $CMake --build $build --parallel 4 2>&1 | Tee-Object -FilePath $log -Append
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $log" }
