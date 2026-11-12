@@ -146,6 +146,62 @@ static void audio(const char *name) {
             }
         }
         CHECK(q.stats.started == 7 && q.stats.full > 0 && q.stats.expired > 0);
+    } else if (!strcmp(name, "audio_busy_fifo")) {
+        for (i = 1; i <= 3; i++) {
+            v = event(i, 0);
+            CHECK(audio_queue_push(&q, &v, 0) == AUDIO_OK);
+        }
+        for (i = 1; i <= 8; i++) {
+            CHECK(audio_queue_peek(&q, i, &item) == AUDIO_OK && item.event.event_id == 1);
+            CHECK(audio_queue_report(&q, 1, AUDIO_BUSY, i) == AUDIO_OK);
+            CHECK(q.items[0].attempts == 0 && q.count == 3);
+        }
+        CHECK(audio_queue_report(&q, 1, AUDIO_STARTED, 9) == AUDIO_OK);
+        CHECK(audio_queue_peek(&q, 9, &item) == AUDIO_OK && item.event.event_id == 2);
+        CHECK(q.stats.started == 1 && q.stats.start_failures == 0);
+    } else if (!strcmp(name, "audio_fail_chain")) {
+        v = event(1, 0);
+        CHECK(audio_queue_push(&q, &v, 0) == AUDIO_OK);
+        v = event(2, 0);
+        CHECK(audio_queue_push(&q, &v, 0) == AUDIO_OK);
+        CHECK(audio_queue_report(&q, 1, AUDIO_FAILED, 1) == AUDIO_OK);
+        CHECK(q.count == 2 && q.items[0].attempts == 1);
+        CHECK(audio_queue_report(&q, 1, AUDIO_FAILED, 2) == AUDIO_OK);
+        CHECK(q.count == 1 && q.items[0].event.event_id == 2);
+        CHECK(audio_queue_report(&q, 2, AUDIO_FAILED, 3) == AUDIO_OK);
+        CHECK(audio_queue_report(&q, 2, AUDIO_STARTED, 4) == AUDIO_OK);
+        CHECK(!q.count && q.stats.start_failures == 3 && q.stats.failed_dropped == 1 &&
+              q.stats.started == 1);
+    } else if (!strcmp(name, "audio_controls")) {
+        v = event(1, 0);
+        CHECK(audio_queue_push(&q, &v, 0) == AUDIO_OK);
+        audio_queue_report_async_failure(&q);
+        audio_queue_clear(&q);
+        CHECK(!q.count && q.watermark == 1 && q.stats.cleared == 1 &&
+              q.stats.async_failures == 1);
+        CHECK(audio_queue_push(&q, &v, 1) == AUDIO_DUPLICATE);
+        v = event(2, 1);
+        CHECK(audio_queue_push(&q, &v, 1) == AUDIO_OK);
+        audio_queue_set_muted(&q, true);
+        CHECK(!q.count && q.stats.cleared == 2);
+        v = event(3, 2);
+        CHECK(audio_queue_push(&q, &v, 2) == AUDIO_MUTED);
+        audio_queue_set_muted(&q, false);
+        CHECK(audio_queue_push(&q, &v, 2) == AUDIO_DUPLICATE);
+        v = event(4, 2);
+        CHECK(audio_queue_push(&q, &v, 2) == AUDIO_OK);
+        CHECK(q.count == 1 && q.watermark == 4 && q.stats.muted == 1 &&
+              q.stats.async_failures == 1);
+    } else if (!strcmp(name, "audio_boundaries")) {
+        v = event(1, 100);
+        CHECK(audio_queue_push(&q, &v, 99) == AUDIO_BAD_INPUT);
+        CHECK(q.watermark == 0 && q.stats.invalid == 1);
+        v.timestamp_ms = 0;
+        CHECK(audio_queue_push(&q, &v, 4999) == AUDIO_OK);
+        CHECK(audio_queue_peek(&q, 4998, &item) == AUDIO_TIME_BACKWARD);
+        CHECK(q.count == 1 && q.items[0].attempts == 0 && q.last_now == 4999);
+        CHECK(audio_queue_peek(&q, 5000, &item) == AUDIO_EMPTY);
+        CHECK(q.stats.expired == 1 && q.watermark == 1);
     } else {
         CHECK(!audio_queue_init(NULL, 5));
         CHECK(!audio_queue_init(&q, 0));
@@ -331,6 +387,67 @@ int main(int argc, char **argv) {
                 at(1200, b, 1);
                 cross(1350, a);
                 CHECK(e.event_id == 2);
+            } else if (!strcmp(name, "control_reset")) {
+                at(300, .5f, 1);
+                greeter_reset_counts(&g);
+                CHECK(!g.origin && !g.middle && !g.traversing &&
+                      g.snapshot.last_event_id == 0);
+                at(450, b, 1);
+                at(600, b, 1);
+                CHECK(!fired && g.origin == (dir ? -1 : 1));
+                cross(750, a);
+                CHECK(fired && e.event_id == 1 &&
+                      e.type == (dir ? GREETER_ENTER : GREETER_EXIT));
+                greeter_reset_counts(&g);
+                CHECK(g.snapshot.last_event_id == 1 && g.snapshot.in_count == 0 &&
+                      g.snapshot.out_count == 0);
+                at(1200, a, 1);
+                greeter_reset_counts(&g); /* reset an incomplete endpoint timer */
+                at(1300, a, 1);
+                at(1449, a, 1);
+                CHECK(!g.origin);
+                at(1450, a, 1);
+                CHECK(g.origin == (dir ? 1 : -1));
+                cross(1600, b);
+                CHECK(e.event_id == 2);
+            } else if (!strcmp(name, "control_reverse")) {
+                cross(300, b);
+                CHECK(g.snapshot.last_event_id == 1);
+                at(750, .5f, 1);
+                greeter_set_reverse(&g, true);
+                CHECK(!g.origin && !g.middle && g.snapshot.last_event_id == 1 &&
+                      g.snapshot.in_count + g.snapshot.out_count == 1);
+                at(900, a, 1);
+                at(1050, a, 1);
+                CHECK(!fired);
+                cross(1200, b);
+                CHECK(e.event_id == 2 &&
+                      e.type == (dir ? GREETER_ENTER : GREETER_EXIT));
+                at(1650, .5f, 1);
+                greeter_set_reverse(&g, true); /* same value must preserve candidate */
+                CHECK(g.origin != 0 && g.middle);
+                at(1800, a, 1);
+                at(1950, a, 1);
+                CHECK(fired && e.event_id == 3);
+            } else if (!strcmp(name, "control_watermarks")) {
+                greeter_frame_t old;
+                at(300, .5f, 1);
+                old = frame(450, b, 1);
+                greeter_reset_counts(&g);
+                CHECK(!greeter_update(&g, &old, &e));
+                CHECK(!greeter_update(&g, &old, &e) &&
+                      g.snapshot.last_error == GREETER_OLD_FRAME);
+                greeter_set_reverse(&g, true);
+                f = frame(449, b, 1);
+                CHECK(!greeter_update(&g, &f, &e) &&
+                      g.snapshot.last_error == GREETER_TIME_BACKWARD);
+                CHECK(g.last_now == 450 && !g.origin);
+                greeter_reset_counts(&g);
+                greeter_set_reverse(&g, false);
+                greeter_set_reverse(&g, true);
+                at(450, b, 1);
+                at(600, b, 1);
+                CHECK(g.origin != 0 && g.snapshot.last_event_id == 0);
             } else if (!strcmp(name, "timeout")) {
                 unsigned j;
                 at(300, .5f, 1);
