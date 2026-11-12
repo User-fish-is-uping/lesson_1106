@@ -76,6 +76,18 @@ with tempfile.TemporaryDirectory() as tmp:
 print('Invalid controls and unknown record kinds include line-numbered errors')
 
 with tempfile.TemporaryDirectory() as tmp:
+    path = Path(tmp)/'board-observations.jsonl'
+    passive = ['boot', 'camera', 'model', 'audio_init', 'audio_player', 'fixture']
+    frame_row = next(line for line in (root/'tests/data/synthetic_roundtrip.jsonl').read_text().splitlines()
+                     if json.loads(line).get('kind') == 'frame')
+    path.write_text('\n'.join(json.dumps({'kind': kind}) for kind in passive) +
+                    '\n' + frame_row + '\n')
+    p = subprocess.run(base+[str(path)], capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr
+    assert json.loads(p.stdout.splitlines()[-1])['frames'] == 1
+print('Known board observation records are ignored without weakening unknown-kind checks')
+
+with tempfile.TemporaryDirectory() as tmp:
     path = Path(tmp)/'chronology.jsonl'
     sample = {"kind":"frame", "seq":1, "t_ms":10, "valid":True,
               "truncated":False, "persons":[]}
