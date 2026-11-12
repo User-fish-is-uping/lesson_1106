@@ -45,7 +45,7 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 
 硬件平台为 Yahboom YB-DKA01 V1.1，使用摄像头、LCD、扬声器和 TF 卡。现有课程模型与驱动需要由固件集成适配。
 
-当前提交的主机测试为 **31/31 通过**，ASan/UBSan 构建的 **30 项 C 检查通过**。后者未执行泄漏扫描，Python 回放测试在普通构建中验证。K210 交叉编译、音频并发和实物通行结果尚未记录，主机结果不能替代板端验证。
+当前提交在 Windows GCC/Ninja 主机构建中为 **38/38 通过**。测试包含 C 状态机、语音队列、资源大小及 Python/ctypes 回放；详细环境和 sanitizer 状态见验证记录。K210 交叉编译、音频并发和实物通行结果须单独记录，主机结果不能替代板端验证。
 
 ## 文档
 
