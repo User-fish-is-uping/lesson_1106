@@ -39,13 +39,13 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 | `tools/host/` | 主机日志回放与接入示例 |
 | `docs/` | 接口规范、构建说明、开发流程及验证记录 |
 
-板端代码位于 `firmware/vision_check/`（共用视觉链路）和 `firmware/vision_count/`（双向计数适配），Windows 构建与测试入口在 `tools/windows/`。LVGL 触摸界面、TF 音频预载和 I2S DMA 播放已接入 v0.4，待实板验收。
+板端代码位于 `firmware/vision_check/`（共用视觉链路）和 `firmware/vision_count/`（双向计数适配），Windows 构建与测试入口在 `tools/windows/`。v0.5 提供可触摸切换的实时摄像头页与 LVGL 状态页，TF 音频预载和 I2S DMA 播放继续沿用 v0.4 实现，待实板验收。
 
 ## 硬件与验证状态
 
 硬件平台为 Yahboom YB-DKA01 V1.1，使用摄像头、LCD、扬声器和 TF 卡。现有课程模型与驱动需要由固件集成适配。
 
-最新核心回归为 **38/38 通过**；固件侧此前 **8/8 板端适配测试通过**（含真实 LVGL 模拟触摸和播放器失败路径），并完成 AI＋计数＋LVGL＋语音集成固件交叉编译。此前计数已有用户初步实测反馈，v0.4 尚未实板验证。本机最新 sanitizer 尝试因 w64devkit 未附带 libasan/libubsan 而无法链接。主机和编译结果不能替代实物通行验证。
+最新核心回归为 **38/38 通过**，固件适配为 **8/8 通过**；其中 LVGL 测试验证摄像头帧、A/B 线、人员框、双页面切换和四个控制按钮。此前 v0.4 完成过交叉编译，v0.5 因当前电脑缺 K210 SDK/模型/交叉工具链尚未交叉编译或上板。本机 sanitizer 尝试因 w64devkit 未附带 libasan/libubsan 而无法链接。主机结果不能替代实物通行验证。
 
 板端构建：在仓库根用 PowerShell 7 执行 `& '.\tools\windows\build-vision.ps1' -Target vision-count`。构建产物与完整配置位于 `dist/vision-count/`，不进入源码库。主机及适配测试入口为 `& '.\tools\windows\test-counter.ps1'`。桌面本地统一目录为 `D:\Codex\专业基础实践\lesson_1106`。
 
@@ -57,6 +57,7 @@ python3 tools/host/replay.py tests/data/synthetic_roundtrip.jsonl
 - [项目计划](docs/两人开发计划.md)
 - [设计决策](docs/设计决策.md)
 - [验证记录](docs/交接与实测记录.md)
+- [摄像头与 LVGL 双页面 v0.5](docs/摄像头与LVGL双页面v0.5.md)
 - [双向计数固件回传与实板步骤](docs/双向计数集成回传.md)
 - [零计数问题的 v0.3 诊断版](docs/计数诊断版v0.3.md)
 

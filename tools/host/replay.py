@@ -9,7 +9,10 @@ from pathlib import Path
 
 U64 = (1 << 64) - 1
 STATE_SIZE = 14
-PASSIVE_KINDS = {'config', 'event', 'state', 'audio', 'metadata'}
+PASSIVE_KINDS = {
+    'config', 'event', 'state', 'audio', 'metadata', 'fixture',
+    'boot', 'camera', 'model', 'audio_init', 'audio_player'
+}
 ERROR_NAMES = {
     0: 'OK', 1: 'BAD_CONFIG', 2: 'BAD_INPUT', 3: 'OLD_FRAME',
     4: 'TIME_BACKWARD', 5: 'TRACK_JUMP', 6: 'TIMEOUT', 7: 'OVERFLOW'

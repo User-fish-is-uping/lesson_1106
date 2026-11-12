@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 static uint16_t screen[320*240];
+static uint16_t camera_frame[320*240];
 static unsigned x1,y1,x2,y2;
 static bool pressed;
 static uint16_t tx,ty;
@@ -45,7 +46,8 @@ int main(void)
 {
     if(!counting_app_init()) return 1;
     counting_app_attach_audio(start); counting_app_set_muted(false);
-    ui_lvgl_init(0); pump(); save("ui-home.ppm");
+    ui_lvgl_init(0); pump(); save("ui-camera-empty.ppm");
+    click(280); save("ui-panel.ppm");
     click(120); if(!counting_app_config()->reverse_direction) return 2;
     click(120); if(counting_app_config()->reverse_direction) return 3;
     click(200); if(!counting_app_muted()) return 4;
@@ -58,10 +60,15 @@ int main(void)
         time_ms+=150; counting_app_process(&obj,i+1,time_ms,time_ms,150);
     }
     if(counting_app_snapshot()->in_count!=1) return 6;
-    ui_lvgl_update(&obj,150); pump(); click(40);
+    for(unsigned i=0;i<320*240;i++) camera_frame[i]=(uint16_t)(0x001f+(i&0x1f));
+    ui_lvgl_update(&obj,150,camera_frame); pump();
+    click(40);
     if(counting_app_snapshot()->in_count || counting_app_snapshot()->out_count ||
        counting_app_snapshot()->state!=GREETER_WAIT_ORIGIN) return 7;
-    click(280); pump(); save("ui-debug.ppm");
-    click(280); pump(); save("ui-home-after.ppm");
+    click(280); pump(); save("ui-camera-live.ppm");
+    if(screen[100*320+100] != camera_frame[100*320+100]) return 8;
+    if(screen[100*320+112] == camera_frame[100*320+112]) return 9;
+    if(screen[100*320+235] == camera_frame[100*320+235]) return 10;
+    click(280); pump(); save("ui-panel-after.ppm");
     return 0;
 }

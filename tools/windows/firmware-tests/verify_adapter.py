@@ -46,7 +46,11 @@ replay = subprocess.run([sys.executable, str(root/'tools/host/replay.py'), str(l
                          '--library', library, '--config', str(cfg)],
                         capture_output=True, text=True, check=True)
 replayed = [json.loads(line) for line in replay.stdout.splitlines()]
-assert [row for row in replayed if row['kind'] == 'event'] == events
+replayed_events = [row for row in replayed if row['kind'] == 'event']
+shared = ('kind', 'id', 't_ms', 'type', 'in', 'out')
+assert [{key: row[key] for key in shared} for row in replayed_events] == events
+assert all(row['last_event_id'] == row['id'] for row in replayed_events)
+assert [row['queued'] for row in replayed_events] == list(range(1, len(events) + 1))
 last = [row for row in rows if row['kind'] == 'state'][-1]
 assert replayed[-1]['in'] == last['in'] and replayed[-1]['out'] == last['out']
 with tempfile.TemporaryDirectory(dir=out) as temporary:

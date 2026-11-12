@@ -210,7 +210,8 @@ int main(void)
 #endif
 #ifdef GREETER_ENABLE_COUNTING
         counting_app_service_audio(now_ms(), audio_player_service(now_ms()));
-        ui_lvgl_update(&people, observed_ms - previous_frame);
+        ui_lvgl_update(&people, observed_ms - previous_frame,
+                       (const uint16_t *)(uintptr_t)display_buf_addr);
         ui_lvgl_service(now_ms());
 #else
         lcd_draw_picture(0, 0, 320, 240, (uint32_t *)(uintptr_t)display_buf_addr);
