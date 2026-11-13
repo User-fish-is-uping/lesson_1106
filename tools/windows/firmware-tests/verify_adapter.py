@@ -22,7 +22,7 @@ frames = [row for row in rows if row['kind'] == 'frame']
 for frame in frames:
     assert len(frame['persons']) <= 10
     for person in frame['persons']:
-        assert person['score'] > .5, 'near-threshold score rounded down'
+        assert person['score'] > declared['confidence_threshold'], 'person score below configured threshold'
         assert struct.pack('f', person['score']) == struct.pack('I', 0x3F000001)
         for coordinate in ('x1', 'x2', 'y1', 'y2'):
             assert 0 <= person[coordinate] <= 1

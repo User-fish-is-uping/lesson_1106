@@ -13,7 +13,7 @@ $sdkStage = Join-Path $devRoot 'greeter-sdk'
 $model = Join-Path $CourseRoot '资料\高级实验例程2\7.物体检测\代码\object_detection\detect.kmodel'
 if ($ModelPath) { $model = (Resolve-Path -LiteralPath $ModelPath).Path }
 $projectName = if ($Target -eq 'vision-count') { 'greeter_count' } else { 'greeter_vision' }
-$version = if ($Target -eq 'vision-count') { 'greeter-count-v0.5' } else { 'greeter-vision-check-v0.3' }
+$version = if ($Target -eq 'vision-count') { 'greeter-count-v0.6' } else { 'greeter-vision-check-v0.3' }
 $sourceCommit = (git -C $projectRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Source must be in the shared Git checkout' }
 $dirty = [bool](git -C $projectRoot status --porcelain --untracked-files=normal)

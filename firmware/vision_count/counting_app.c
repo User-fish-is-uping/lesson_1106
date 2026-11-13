@@ -16,6 +16,9 @@ static counting_audio_start_t audio_start;
 bool counting_app_init(void)
 {
     config = greeter_default_config();
+    /* Side-on views often yield weaker, intermittent person detections. */
+    config.confidence_threshold = .30f;
+    config.lost_grace_ms = 800;
     if (greeter_init(&counter, &config) != GREETER_OK || !audio_queue_init(&audio, 5000))
         return false;
     audio_start = NULL;

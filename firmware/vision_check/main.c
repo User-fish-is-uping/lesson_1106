@@ -129,7 +129,7 @@ int main(void)
     lcd_draw_string(8, 40, FIRMWARE_VERSION, WHITE);
     printf("{\"kind\":\"boot\",\"firmware\":\"%s\",\"source_commit\":\"%s\","
         "\"source_dirty\":%s,\"core_commit\":\"%s\",\"baud\":115200,"
-        "\"person_class\":14,\"width\":320,\"height\":240,\"threshold\":0.5,"
+        "\"person_class\":14,\"width\":320,\"height\":240,"
         "\"cpu_hz\":%" PRIu64 "}\n", FIRMWARE_VERSION, FIRMWARE_SOURCE_COMMIT,
         FIRMWARE_SOURCE_DIRTY ? "true" : "false", FIRMWARE_CORE_COMMIT, cpu_hz);
 #ifdef GREETER_ENABLE_COUNTING
